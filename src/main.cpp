@@ -1,6 +1,6 @@
 
 ////////////////////////////////////////////////////////////
-// Headers
+// sounda
 ////////////////////////////////////////////////////////////
 #include "base_application.h"
 
@@ -15,6 +15,9 @@
 
 #define PI 3.141592653589793238462643
 
+typedef std::vector<complex>    CVector;
+
+// Main application
 class MyApplication : public BaseApplication
 {
 public:
@@ -25,8 +28,10 @@ public:
 
 private:
   sf::VertexArray VA1;
+  sf::VertexArray VA2;
+
   std::vector<float> hammWindow;
-  std::vector<complex> sample;
+  CVector sample;
 
   sf::SoundBuffer buffer;
   sf::Sound sound;
@@ -37,12 +42,12 @@ private:
   void loadSound();
   void initHamming();
   void hammingWindow();
+  void process(float max);
 };
 
 void MyApplication::loadSound()
 {
-  std::string fileName("resources/rasmus_-_dancer_in_the_dark_(zvukoff.ru).ogg");
-  //std::string fileName("resources/Celldweller - Electric Eye.ogg");
+  std::string fileName("resources/billy_talent_-_viking_death_march.ogg");
   if (!buffer.loadFromFile(fileName))
     return;
 
@@ -72,7 +77,7 @@ void MyApplication::initHamming()
 void MyApplication::hammingWindow()
 {
   sf::Vector2f widgetPos = sf::Vector2f(20, 150);
-  sf::Color clr(255, 0, 0, 50);
+  sf::Color clr(255, 255, 0, 50);
 
   float invWidgetWidth = 1. / (float)bufferSize * 760.;
 
@@ -80,10 +85,29 @@ void MyApplication::hammingWindow()
   if (mark + bufferSize < sampleCount) {
     for (int i(mark); i < bufferSize + mark; ++i) {
       sample[i - mark] = complex(buffer.getSamples()[i] * hammWindow[i - mark], 0);
-      clr.g = 127 + (sample[i - mark].re() * 0.005);
-      VA1[i - mark] = sf::Vertex(widgetPos + sf::Vector2f((i - mark) * invWidgetWidth, sample[i - mark].re() * 0.005), clr);
+      //VA1[i - mark] = sf::Vertex(widgetPos + sf::Vector2f((i - mark) * invWidgetWidth, sample[i - mark].re() * 0.005), clr);
+      VA1[i - mark].position.x = widgetPos.x + (i - mark) * invWidgetWidth;
+      VA1[i - mark].position.y = widgetPos.y + sample[i - mark].re() * 0.005;
+      VA1[i - mark].color = clr;
     }
   }
+}
+
+void MyApplication::process(float max)
+{
+  VA2.clear();
+
+  CFFT::Forward(sample.data(), sample.size());
+
+	VA2.setPrimitiveType(sf::Lines);
+	sf::Vector2f position(0, 450);
+	for (float i(3); i < fmin(bufferSize / 2.f, 20000.f); i *= 1.01) {
+		sf::Vector2f samplePosition(log(i) / log(fmin(bufferSize * .5f, 20000.f)), fabs(sample[(int)i].re()) / max);
+		VA2.append(sf::Vertex(position + sf::Vector2f(samplePosition.x * 700, -samplePosition.y * 100.f), sf::Color::White));
+		VA2.append(sf::Vertex(position + sf::Vector2f(samplePosition.x * 700, 0), sf::Color::White));
+		VA2.append(sf::Vertex(position + sf::Vector2f(samplePosition.x * 700, 0), sf::Color(255,255,255,100)));
+		VA2.append(sf::Vertex(position + sf::Vector2f(samplePosition.x * 700, samplePosition.y * 100.f * .5f), sf::Color(255,255,255,0)));
+	}
 }
 
 int MyApplication::Run()
@@ -120,6 +144,8 @@ int MyApplication::Run()
     if (sound.getStatus() == sf::Sound::Playing) {
       hammingWindow();
 
+      process(10000000.);
+
       // Display the playing position
       // std::cout << "\rPlaying... " << sound.getPlayingOffset().asSeconds() << " sec        ";
       // std::cout << std::flush;
@@ -127,6 +153,7 @@ int MyApplication::Run()
 
     window.clear();
     window.draw(VA1);
+    window.draw(VA2);
     window.display();
   }
 
