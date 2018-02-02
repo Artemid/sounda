@@ -12,7 +12,7 @@ public:
   BaseApplication(const BaseApplication&) = delete;
   BaseApplication& operator=(const BaseApplication&) = delete;
 
-  virtual int Run() = 0;
+  virtual int Run(int argc, char* argv[]) = 0;
 
 private:
 

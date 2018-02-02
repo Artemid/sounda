@@ -52,4 +52,4 @@ include_directories(${PROJECT_NAME} ${INC_DIRECTORIES})
 
 add_executable(${PROJECT_NAME} ${SRC_FILES} ${INC_FILES})
 
-target_link_libraries(${PROJECT_NAME} "-lsfml-system -lsfml-window -lsfml-graphics -lsfml-audio")
+target_link_libraries(${PROJECT_NAME} "-lrt -lm -lasound -pthread -lsfml-system -lsfml-window -lsfml-graphics -lsfml-audio")

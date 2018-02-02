@@ -1,8 +1,7 @@
 
-////////////////////////////////////////////////////////////
-// sounda
-////////////////////////////////////////////////////////////
-#include "base_application.h"
+/**
+ * sounda
+ */
 
 #include <SFML/Audio.hpp>
 #include <SFML/Graphics.hpp>
@@ -11,12 +10,15 @@
 #include <vector>
 #include <cmath>
 
+#include "base_application.h"
 #include "fft.h"
 
+/*-------------------------------------------------------------------------*/
 #define PI 3.141592653589793238462643
 
 typedef std::vector<complex>    CVector;
 
+/*-------------------------------------------------------------------------*/
 // Main application
 class MyApplication : public BaseApplication
 {
@@ -24,7 +26,7 @@ public:
   MyApplication() = default;
   ~MyApplication() = default;
 
-  int Run() override;
+  int Run(int argc, char* argv[]) override;
 
 private:
   sf::VertexArray VA1;
@@ -39,15 +41,15 @@ private:
   uint64_t sampleCount;
   uint64_t bufferSize;
 
-  void loadSound();
+  void loadSound(const std::string& fileName);
   void initHamming();
   void hammingWindow();
   void process(float max);
 };
 
-void MyApplication::loadSound()
+void MyApplication::loadSound(const std::string& fileName)
 {
-  std::string fileName("resources/billy_talent_-_viking_death_march.ogg");
+  //std::string fileName("resources/billy_talent_-_viking_death_march.ogg");
   if (!buffer.loadFromFile(fileName))
     return;
 
@@ -96,25 +98,36 @@ void MyApplication::hammingWindow()
 void MyApplication::process(float max)
 {
   VA2.clear();
+  VA2.setPrimitiveType(sf::Lines);
 
   CFFT::Forward(sample.data(), sample.size());
 
-	VA2.setPrimitiveType(sf::Lines);
-	sf::Vector2f position(0, 450);
-	for (float i(3); i < fmin(bufferSize / 2.f, 20000.f); i *= 1.01) {
-		sf::Vector2f samplePosition(log(i) / log(fmin(bufferSize * .5f, 20000.f)), fabs(sample[(int)i].re()) / max);
-		VA2.append(sf::Vertex(position + sf::Vector2f(samplePosition.x * 700, -samplePosition.y * 100.f), sf::Color::White));
-		VA2.append(sf::Vertex(position + sf::Vector2f(samplePosition.x * 700, 0), sf::Color::White));
-		VA2.append(sf::Vertex(position + sf::Vector2f(samplePosition.x * 700, 0), sf::Color(255,255,255,100)));
-		VA2.append(sf::Vertex(position + sf::Vector2f(samplePosition.x * 700, samplePosition.y * 100.f * .5f), sf::Color(255,255,255,0)));
-	}
+  sf::Vector2f widgetPos(20, 450);
+
+  // float xPos = fmin(bufferSize * .5f, 20000.f);
+  // for (float i(3); i < xPos; i *= 1.01) {
+  //   sf::Vector2f samplePosition(log(i) / log(xPos), fabs(sample[(int)i >> 1].re()) / max);
+  //   VA2.append(sf::Vertex(widgetPos + sf::Vector2f(samplePosition.x * 700, -samplePosition.y * 100.f), sf::Color::White));
+  //   VA2.append(sf::Vertex(widgetPos + sf::Vector2f(samplePosition.x * 700, 0), sf::Color::White));
+  //   VA2.append(sf::Vertex(widgetPos + sf::Vector2f(samplePosition.x * 700, 0), sf::Color(255,255,255,100)));
+  //   VA2.append(sf::Vertex(widgetPos + sf::Vector2f(samplePosition.x * 700, samplePosition.y * 100.f * .5f), sf::Color(255,255,255,0)));
+  // }
+
+  float invWidgetWidth = 1. / (float)bufferSize;
+  for (int i(0); i < bufferSize; ++i) {
+    sf::Vector2f samplePosition(i * invWidgetWidth * 760, fabs(sample[i >> 2].re()) / max);
+    VA2.append(sf::Vertex(widgetPos + sf::Vector2f(samplePosition.x, -samplePosition.y * 100.f), sf::Color::White));
+    VA2.append(sf::Vertex(widgetPos + sf::Vector2f(samplePosition.x, 0), sf::Color::White));
+    VA2.append(sf::Vertex(widgetPos + sf::Vector2f(samplePosition.x, 0), sf::Color(255,255,255,100)));
+    VA2.append(sf::Vertex(widgetPos + sf::Vector2f(samplePosition.x, samplePosition.y * 100.f * .5f), sf::Color(255,255,255,0)));
+  }
 }
 
-int MyApplication::Run()
+int MyApplication::Run(int argc, char* argv[])
 {
   sf::RenderWindow window(sf::VideoMode(800, 600, 32), "FFT demo");
 
-  loadSound();
+  loadSound(std::move(std::string(argv[1])));
   initHamming();
 
   sf::Event event;
@@ -133,6 +146,9 @@ int MyApplication::Run()
         sound.setBuffer(buffer);
         sound.play();
       }
+      else if (event.key.code == sf::Keyboard::Escape) {
+        window.close();
+      }
       break;
 
       // we don't process other types of events
@@ -144,7 +160,7 @@ int MyApplication::Run()
     if (sound.getStatus() == sf::Sound::Playing) {
       hammingWindow();
 
-      process(10000000.);
+      process(1000000.);
 
       // Display the playing position
       // std::cout << "\rPlaying... " << sound.getPlayingOffset().asSeconds() << " sec        ";
@@ -177,13 +193,18 @@ int MyApplication::Run()
 /// \return Application exit code
 ///
 ////////////////////////////////////////////////////////////
-int main()
+int main(int argc, char* argv[])
 {
   std::cout << "Application started" << std::endl;
   int result = 0;
   try {
     MyApplication myApp;
-    result = myApp.Run();
+    if (argc > 1) {
+      result = myApp.Run(argc, argv);
+    }
+    else {
+      std::cerr << "Application needs sound file name as argument" << std::endl;
+    }
   }
   catch (...) {
     std::cerr << "Unhandled exception" << std::endl;
