@@ -72,25 +72,36 @@ void MyApplication::initHamming()
 
   sample.resize(bufferSize);
 
-  for (int i(0); i < bufferSize; ++i)
-    hammWindow.push_back(0.54 - 0.46 * cos(2 * PI * i / (float)bufferSize));
+  // Richar W. Hamming window function
+  // see: https://en.wikipedia.org/wiki/Window_function#A_list_of_window_functions
+  for (int i(0); i < bufferSize; ++i) {
+    hammWindow.push_back(0.54 - 0.46 * cos(2. * PI * i / float(bufferSize - 1)));
+  }
 }
 
 void MyApplication::hammingWindow()
 {
   sf::Vector2f widgetPos = sf::Vector2f(20, 150);
-  sf::Color clr(255, 255, 0, 50);
+  sf::Color clr(255, 255, 0, 127);
 
   float invWidgetWidth = 1. / (float)bufferSize * 760.;
+  float invSampleAmp = 1. / 65535.;
+  float sampleVal;
 
   uint32_t mark = sound.getPlayingOffset().asSeconds() * sampleRate;
   if (mark + bufferSize < sampleCount) {
-    for (int i(mark); i < bufferSize + mark; ++i) {
-      sample[i - mark] = complex(buffer.getSamples()[i] * hammWindow[i - mark], 0);
+    uint32_t l_ptr = mark;
+    uint32_t r_ptr = mark + 1;
+    for (int i(0); i < bufferSize; ++i) {
+      sampleVal = float(buffer.getSamples()[l_ptr] + buffer.getSamples()[r_ptr]) * .5;
+      l_ptr += 2;
+      r_ptr += 2;
+      sample[i] = complex(sampleVal * hammWindow[i], 0);
+      clr.b = 127 + (int)((sampleVal + 32767.) * invSampleAmp * 255.);
       //VA1[i - mark] = sf::Vertex(widgetPos + sf::Vector2f((i - mark) * invWidgetWidth, sample[i - mark].re() * 0.005), clr);
-      VA1[i - mark].position.x = widgetPos.x + (i - mark) * invWidgetWidth;
-      VA1[i - mark].position.y = widgetPos.y + sample[i - mark].re() * 0.005;
-      VA1[i - mark].color = clr;
+      VA1[i].position.x = widgetPos.x + i * invWidgetWidth;
+      VA1[i].position.y = widgetPos.y + sample[i].re() * 0.005;
+      VA1[i].color = clr;
     }
   }
 }
@@ -100,32 +111,52 @@ void MyApplication::process(float max)
   VA2.clear();
   VA2.setPrimitiveType(sf::Lines);
 
-  CFFT::Forward(sample.data(), sample.size());
+  CFFT::Forward(sample.data(), bufferSize);
 
   sf::Vector2f widgetPos(20, 450);
 
   // float xPos = fmin(bufferSize * .5f, 20000.f);
   // for (float i(3); i < xPos; i *= 1.01) {
-  //   sf::Vector2f samplePosition(log(i) / log(xPos), fabs(sample[(int)i >> 1].re()) / max);
+  //   sf::Vector2f samplePosition(log(i) / log(xPos), log10(fabs(sample[(int)i >> 1].re())) * .3);
   //   VA2.append(sf::Vertex(widgetPos + sf::Vector2f(samplePosition.x * 700, -samplePosition.y * 100.f), sf::Color::White));
   //   VA2.append(sf::Vertex(widgetPos + sf::Vector2f(samplePosition.x * 700, 0), sf::Color::White));
   //   VA2.append(sf::Vertex(widgetPos + sf::Vector2f(samplePosition.x * 700, 0), sf::Color(255,255,255,100)));
   //   VA2.append(sf::Vertex(widgetPos + sf::Vector2f(samplePosition.x * 700, samplePosition.y * 100.f * .5f), sf::Color(255,255,255,0)));
   // }
 
+  sf::Vertex vert;
+  sf::Color clr(0, 0, 0, 127);
   float invWidgetWidth = 1. / (float)bufferSize;
+  float val;
   for (int i(0); i < bufferSize; ++i) {
-    sf::Vector2f samplePosition(i * invWidgetWidth * 760, fabs(sample[i >> 2].re()) / max);
-    VA2.append(sf::Vertex(widgetPos + sf::Vector2f(samplePosition.x, -samplePosition.y * 100.f), sf::Color::White));
-    VA2.append(sf::Vertex(widgetPos + sf::Vector2f(samplePosition.x, 0), sf::Color::White));
-    VA2.append(sf::Vertex(widgetPos + sf::Vector2f(samplePosition.x, 0), sf::Color(255,255,255,100)));
-    VA2.append(sf::Vertex(widgetPos + sf::Vector2f(samplePosition.x, samplePosition.y * 100.f * .5f), sf::Color(255,255,255,0)));
+    val = sample[i >> 2].re() / max;
+    sf::Vector2f samplePosition(i * invWidgetWidth * 760, fabs(val));
+
+    vert.position.x = widgetPos.x + samplePosition.x;
+    vert.position.y = widgetPos.y + -samplePosition.y;
+    vert.color = sf::Color::White;
+    VA2.append(vert);
+
+    // vert.position.x = widgetPos.x + samplePosition.x;
+    vert.position.y = widgetPos.y;
+    vert.color = sf::Color::White;
+    VA2.append(vert);
+
+    // vert.position.x = widgetPos.x + samplePosition.x;
+    // vert.position.y = widgetPos.y;
+    // vert.color = sf::Color::White;
+    VA2.append(vert);
+
+    // vert.position.x = widgetPos.x + samplePosition.x;
+    vert.position.y = widgetPos.y + samplePosition.y * .5f;
+    vert.color = clr;
+    VA2.append(vert);
   }
 }
 
 int MyApplication::Run(int argc, char* argv[])
 {
-  sf::RenderWindow window(sf::VideoMode(800, 600, 32), "FFT demo");
+  sf::RenderWindow window(sf::VideoMode(800, 600, 32), "Hamming + FFT");
 
   loadSound(std::move(std::string(argv[1])));
   initHamming();
@@ -160,7 +191,7 @@ int MyApplication::Run(int argc, char* argv[])
     if (sound.getStatus() == sf::Sound::Playing) {
       hammingWindow();
 
-      process(1000000.);
+      process(10000.);
 
       // Display the playing position
       // std::cout << "\rPlaying... " << sound.getPlayingOffset().asSeconds() << " sec        ";
