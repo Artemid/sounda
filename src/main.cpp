@@ -127,7 +127,8 @@ void MyApplication::process(float max)
   sf::Color clr(0, 0, 0, 127);
   for (int i(0); i < 760; ++i) {
     val = exp(x * c1);
-    val = (val - val * (1. - x)) * c2;
+    val = x * val * c2;
+
     dIndex = size_t(val * dMax);
     x += xStep;
 
