@@ -115,22 +115,24 @@ void MyApplication::process(float max)
 
   sf::Vector2f widgetPos(20, 450);
 
-  // float xPos = fmin(bufferSize * .5f, 20000.f);
-  // for (float i(3); i < xPos; i *= 1.01) {
-  //   sf::Vector2f samplePosition(log(i) / log(xPos), log10(fabs(sample[(int)i >> 1].re())) * .3);
-  //   VA2.append(sf::Vertex(widgetPos + sf::Vector2f(samplePosition.x * 700, -samplePosition.y * 100.f), sf::Color::White));
-  //   VA2.append(sf::Vertex(widgetPos + sf::Vector2f(samplePosition.x * 700, 0), sf::Color::White));
-  //   VA2.append(sf::Vertex(widgetPos + sf::Vector2f(samplePosition.x * 700, 0), sf::Color(255,255,255,100)));
-  //   VA2.append(sf::Vertex(widgetPos + sf::Vector2f(samplePosition.x * 700, samplePosition.y * 100.f * .5f), sf::Color(255,255,255,0)));
-  // }
+  const float c1 = 1.;
+  const float c2 = 1. / exp(c1);
+  const float dMax = float(bufferSize >> 1);
+  const float xStep = 1. / 760.;
+  float x = 0.;
+  float val;  
+  size_t dIndex = 0;
 
   sf::Vertex vert;
   sf::Color clr(0, 0, 0, 127);
-  float invWidgetWidth = 1. / (float)bufferSize;
-  float val;
-  for (int i(0); i < bufferSize; ++i) {
-    val = sample[i >> 2].re() / max;
-    sf::Vector2f samplePosition(i * invWidgetWidth * 760, fabs(val));
+  for (int i(0); i < 760; ++i) {
+    val = exp(x * c1);
+    val = (val - val * (1. - x)) * c2;
+    dIndex = size_t(val * dMax);
+    x += xStep;
+
+    val = sample[dIndex].re() / max;
+    sf::Vector2f samplePosition(i, fabs(val));
 
     vert.position.x = widgetPos.x + samplePosition.x;
     vert.position.y = widgetPos.y + -samplePosition.y;
